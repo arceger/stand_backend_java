@@ -54,5 +54,13 @@ class AuthService {
     }
 }
 
-record AuthResponse(String token, String fullName, String email) {
+@io.swagger.v3.oas.annotations.media.Schema(description = "Resposta de autenticação do administrador")
+record AuthResponse(
+    @io.swagger.v3.oas.annotations.media.Schema(description = "Token de sessão Bearer para autenticação", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6.4ca96f75-6828-5673-c4fd-3d074f77bfb7")
+    String token,
+    @io.swagger.v3.oas.annotations.media.Schema(description = "Nome completo do administrador", example = "Administrador Stand")
+    String fullName,
+    @io.swagger.v3.oas.annotations.media.Schema(description = "E-mail do administrador", example = "admin@stand.local")
+    String email
+) {
 }
