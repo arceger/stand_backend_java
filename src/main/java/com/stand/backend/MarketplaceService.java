@@ -210,7 +210,9 @@ class MarketplaceService {
     private Specification<Vehicle> buildFilter(VehicleFilter filter, boolean includeAllStatuses) {
         return (root, query, builder) -> {
             query.distinct(true);
-            root.fetch("images", JoinType.LEFT);
+            if (Long.class != query.getResultType() && long.class != query.getResultType()) {
+                root.fetch("images", JoinType.LEFT);
+            }
             List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
 
             if (!includeAllStatuses) {

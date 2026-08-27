@@ -25,5 +25,11 @@ class ApiExceptionHandler {
     }
 }
 
-record ErrorResponse(Instant timestamp, String message) {
+@io.swagger.v3.oas.annotations.media.Schema(description = "Estrutura padrão de resposta de erro")
+record ErrorResponse(
+    @io.swagger.v3.oas.annotations.media.Schema(description = "Data e hora em que o erro ocorreu (UTC)", example = "2026-08-26T20:55:00Z")
+    Instant timestamp,
+    @io.swagger.v3.oas.annotations.media.Schema(description = "Mensagem explicativa do erro", example = "Veículo não encontrado.")
+    String message
+) {
 }

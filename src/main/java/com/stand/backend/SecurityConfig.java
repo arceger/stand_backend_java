@@ -41,6 +41,7 @@ class SecurityConfig {
             .authorizeHttpRequests(registry -> registry
                 .requestMatchers(HttpMethod.POST, "/api/admin/auth/login").permitAll()
                 .requestMatchers("/api/public/**", "/uploads/**", "/actuator/health").permitAll()
+                .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/api/admin/**").authenticated()
                 .anyRequest().permitAll()
             )
