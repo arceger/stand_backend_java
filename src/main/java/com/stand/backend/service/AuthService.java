@@ -1,32 +1,41 @@
-package com.stand.backend;
+package com.stand.backend.service;
 
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.UUID;
+import com.stand.backend.dto.AuthResponse;
+import com.stand.backend.exception.BadRequestException;
+import com.stand.backend.model.AdminSession;
+import com.stand.backend.model.AdminUser;
+import com.stand.backend.repository.AdminSessionRepository;
+import com.stand.backend.repository.AdminUserRepository;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.UUID;
+
 @Service
 @Transactional
-class AuthService {
+public class AuthService {
+
     private final AdminUserRepository adminUserRepository;
     private final AdminSessionRepository adminSessionRepository;
     private final PasswordEncoder passwordEncoder;
 
-    AuthService(
-        AdminUserRepository adminUserRepository,
-        AdminSessionRepository adminSessionRepository,
-        PasswordEncoder passwordEncoder
+    public AuthService(
+            AdminUserRepository adminUserRepository,
+            AdminSessionRepository adminSessionRepository,
+            PasswordEncoder passwordEncoder
     ) {
         this.adminUserRepository = adminUserRepository;
         this.adminSessionRepository = adminSessionRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
-    AuthResponse authenticate(String email, String password) {
+    public AuthResponse authenticate(String email, String password) {
         AdminUser adminUser = adminUserRepository.findByEmailIgnoreCase(email)
-            .orElseThrow(() -> new BadRequestException("Credenciais invalidas."));
+                .orElseThrow(() -> new BadRequestException("Credenciais invalidas."));
 
         if (!passwordEncoder.matches(password, adminUser.getPasswordHash())) {
             throw new BadRequestException("Credenciais invalidas.");
@@ -35,32 +44,21 @@ class AuthService {
         adminSessionRepository.deleteByExpiresAtBefore(Instant.now());
         String token = UUID.randomUUID() + "." + UUID.randomUUID();
         AdminSession session = adminSessionRepository.save(
-            new AdminSession(adminUser, token, Instant.now().plus(10, ChronoUnit.DAYS))
+                new AdminSession(adminUser, token, Instant.now().plus(10, ChronoUnit.DAYS))
         );
         return new AuthResponse(session.getToken(), adminUser.getFullName(), adminUser.getEmail());
     }
 
-    AdminUser resolveAdmin(String token) {
+    public AdminUser resolveAdmin(String token) {
         if (token == null || token.isBlank()) {
             throw new BadRequestException("Sessao administrativa invalida.");
         }
         AdminSession session = adminSessionRepository.findByToken(token)
-            .orElseThrow(() -> new BadRequestException("Sessao administrativa invalida."));
+                .orElseThrow(() -> new BadRequestException("Sessao administrativa invalida."));
         if (session.getExpiresAt().isBefore(Instant.now())) {
             adminSessionRepository.delete(session);
             throw new BadRequestException("Sessao administrativa expirada.");
         }
         return session.getAdminUser();
     }
-}
-
-@io.swagger.v3.oas.annotations.media.Schema(description = "Resposta de autenticação do administrador")
-record AuthResponse(
-    @io.swagger.v3.oas.annotations.media.Schema(description = "Token de sessão Bearer para autenticação", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6.4ca96f75-6828-5673-c4fd-3d074f77bfb7")
-    String token,
-    @io.swagger.v3.oas.annotations.media.Schema(description = "Nome completo do administrador", example = "Administrador Stand")
-    String fullName,
-    @io.swagger.v3.oas.annotations.media.Schema(description = "E-mail do administrador", example = "admin@stand.local")
-    String email
-) {
 }

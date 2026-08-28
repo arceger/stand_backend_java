@@ -1,32 +1,46 @@
-package com.stand.backend;
+package com.stand.backend.service;
+
+import com.stand.backend.dto.LeadRequest;
+import com.stand.backend.dto.VehicleFilter;
+import com.stand.backend.dto.VehicleUpsertRequest;
+import com.stand.backend.exception.BadRequestException;
+import com.stand.backend.exception.NotFoundException;
+import com.stand.backend.model.Vehicle;
+import com.stand.backend.model.VehicleImage;
+import com.stand.backend.model.VehicleLead;
+import com.stand.backend.model.VehicleStatus;
+import com.stand.backend.repository.VehicleImageRepository;
+import com.stand.backend.repository.VehicleLeadRepository;
+import com.stand.backend.repository.VehicleRepository;
 
 import jakarta.persistence.criteria.JoinType;
-import java.math.BigDecimal;
-import java.text.Normalizer;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Locale;
-import java.util.UUID;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
+import java.text.Normalizer;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
+
 @Service
 @Transactional
-class MarketplaceService {
+public class MarketplaceService {
+
     private final VehicleRepository vehicleRepository;
     private final VehicleImageRepository vehicleImageRepository;
     private final VehicleLeadRepository vehicleLeadRepository;
     private final StorageService storageService;
 
-    MarketplaceService(
-        VehicleRepository vehicleRepository,
-        VehicleImageRepository vehicleImageRepository,
-        VehicleLeadRepository vehicleLeadRepository,
-        StorageService storageService
+    public MarketplaceService(
+            VehicleRepository vehicleRepository,
+            VehicleImageRepository vehicleImageRepository,
+            VehicleLeadRepository vehicleLeadRepository,
+            StorageService storageService
     ) {
         this.vehicleRepository = vehicleRepository;
         this.vehicleImageRepository = vehicleImageRepository;
@@ -35,63 +49,63 @@ class MarketplaceService {
     }
 
     @Transactional(readOnly = true)
-    List<Vehicle> listPublished(VehicleFilter filter) {
+    public List<Vehicle> listPublished(VehicleFilter filter) {
         return vehicleRepository.findAll(buildFilter(filter, false), Sort.by(Sort.Order.desc("featured"), Sort.Order.desc("createdAt")));
     }
 
     @Transactional(readOnly = true)
-    List<Vehicle> listAdmin(VehicleFilter filter) {
+    public List<Vehicle> listAdmin(VehicleFilter filter) {
         return vehicleRepository.findAll(buildFilter(filter, true), Sort.by(Sort.Order.desc("updatedAt")));
     }
 
     @Transactional(readOnly = true)
-    List<Vehicle> featuredVehicles() {
+    public List<Vehicle> featuredVehicles() {
         return vehicleRepository.findTop6ByStatusOrderByFeaturedDescCreatedAtDesc(VehicleStatus.PUBLISHED);
     }
 
     @Transactional(readOnly = true)
-    Vehicle getPublishedBySlug(String slug) {
+    public Vehicle getPublishedBySlug(String slug) {
         return vehicleRepository.findBySlugAndStatus(slug, VehicleStatus.PUBLISHED)
-            .orElseThrow(() -> new NotFoundException("Veiculo nao encontrado."));
+                .orElseThrow(() -> new NotFoundException("Veiculo nao encontrado."));
     }
 
     @Transactional(readOnly = true)
-    Vehicle getAdminVehicle(UUID id) {
+    public Vehicle getAdminVehicle(UUID id) {
         return vehicleRepository.findById(id)
-            .orElseThrow(() -> new NotFoundException("Veiculo nao encontrado."));
+                .orElseThrow(() -> new NotFoundException("Veiculo nao encontrado."));
     }
 
-    Vehicle createVehicle(VehicleUpsertRequest request) {
+    public Vehicle createVehicle(VehicleUpsertRequest request) {
         Vehicle vehicle = new Vehicle();
         applyVehicleFields(vehicle, request);
         return vehicleRepository.save(vehicle);
     }
 
-    Vehicle updateVehicle(UUID vehicleId, VehicleUpsertRequest request) {
+    public Vehicle updateVehicle(UUID vehicleId, VehicleUpsertRequest request) {
         Vehicle vehicle = getAdminVehicle(vehicleId);
         applyVehicleFields(vehicle, request);
         return vehicleRepository.save(vehicle);
     }
 
-    Vehicle updateStatus(UUID vehicleId, VehicleStatus status) {
+    public Vehicle updateStatus(UUID vehicleId, VehicleStatus status) {
         Vehicle vehicle = getAdminVehicle(vehicleId);
         vehicle.setStatus(status);
         return vehicleRepository.save(vehicle);
     }
 
-    VehicleLead createLead(String slug, LeadRequest request) {
+    public VehicleLead createLead(String slug, LeadRequest request) {
         Vehicle vehicle = getPublishedBySlug(slug);
         return vehicleLeadRepository.save(new VehicleLead(
-            vehicle,
-            request.customerName().trim(),
-            request.phone().trim(),
-            request.email() == null ? null : request.email().trim(),
-            request.message() == null ? null : request.message().trim(),
-            "SITE"
+                vehicle,
+                request.customerName().trim(),
+                request.phone().trim(),
+                request.email() == null ? null : request.email().trim(),
+                request.message() == null ? null : request.message().trim(),
+                "SITE"
         ));
     }
 
-    List<VehicleImage> uploadImages(UUID vehicleId, List<MultipartFile> files) {
+    public List<VehicleImage> uploadImages(UUID vehicleId, List<MultipartFile> files) {
         Vehicle vehicle = getAdminVehicle(vehicleId);
         if (files == null || files.isEmpty()) {
             throw new BadRequestException("Selecione pelo menos uma imagem.");
@@ -106,12 +120,12 @@ class MarketplaceService {
             }
             StorageService.StoredImage storedImage = storageService.save(file, vehicleId);
             VehicleImage image = new VehicleImage(
-                vehicle,
-                storedImage.publicUrl(),
-                nextOrder++,
-                currentImages.isEmpty() && createdImages.isEmpty(),
-                "UPLOAD",
-                storedImage.storageKey()
+                    vehicle,
+                    storedImage.publicUrl(),
+                    nextOrder++,
+                    currentImages.isEmpty() && createdImages.isEmpty(),
+                    "UPLOAD",
+                    storedImage.storageKey()
             );
             createdImages.add(vehicleImageRepository.save(image));
         }
@@ -119,12 +133,12 @@ class MarketplaceService {
         return vehicleImageRepository.findByVehicleIdOrderBySortOrderAsc(vehicleId);
     }
 
-    List<VehicleImage> replaceImage(UUID vehicleId, UUID imageId, MultipartFile file) {
+    public List<VehicleImage> replaceImage(UUID vehicleId, UUID imageId, MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new BadRequestException("Selecione uma imagem para substituicao.");
         }
         VehicleImage image = vehicleImageRepository.findByIdAndVehicleId(imageId, vehicleId)
-            .orElseThrow(() -> new NotFoundException("Imagem nao encontrada."));
+                .orElseThrow(() -> new NotFoundException("Imagem nao encontrada."));
         StorageService.StoredImage storedImage = storageService.save(file, vehicleId);
         if ("UPLOAD".equalsIgnoreCase(image.getSourceKind())) {
             storageService.deleteIfManaged(image.getStorageKey());
@@ -135,7 +149,7 @@ class MarketplaceService {
         return vehicleImageRepository.findByVehicleIdOrderBySortOrderAsc(vehicleId);
     }
 
-    List<VehicleImage> reorderImages(UUID vehicleId, List<UUID> orderedIds) {
+    public List<VehicleImage> reorderImages(UUID vehicleId, List<UUID> orderedIds) {
         List<VehicleImage> images = vehicleImageRepository.findByVehicleIdOrderBySortOrderAsc(vehicleId);
         if (orderedIds == null || orderedIds.size() != images.size()) {
             throw new BadRequestException("A ordem enviada nao corresponde a galeria atual.");
@@ -144,16 +158,16 @@ class MarketplaceService {
         for (int index = 0; index < orderedIds.size(); index++) {
             UUID imageId = orderedIds.get(index);
             VehicleImage image = images.stream()
-                .filter(candidate -> candidate.getId().equals(imageId))
-                .findFirst()
-                .orElseThrow(() -> new BadRequestException("Ordem de imagens invalida."));
+                    .filter(candidate -> candidate.getId().equals(imageId))
+                    .findFirst()
+                    .orElseThrow(() -> new BadRequestException("Ordem de imagens invalida."));
             image.setSortOrder(index);
         }
         vehicleImageRepository.saveAll(images);
         return vehicleImageRepository.findByVehicleIdOrderBySortOrderAsc(vehicleId);
     }
 
-    List<VehicleImage> setCoverImage(UUID vehicleId, UUID imageId) {
+    public List<VehicleImage> setCoverImage(UUID vehicleId, UUID imageId) {
         List<VehicleImage> images = vehicleImageRepository.findByVehicleIdOrderBySortOrderAsc(vehicleId);
         if (images.isEmpty()) {
             throw new BadRequestException("O veiculo ainda nao possui imagens.");
@@ -171,9 +185,9 @@ class MarketplaceService {
         return vehicleImageRepository.findByVehicleIdOrderBySortOrderAsc(vehicleId);
     }
 
-    List<VehicleImage> deleteImage(UUID vehicleId, UUID imageId) {
+    public List<VehicleImage> deleteImage(UUID vehicleId, UUID imageId) {
         VehicleImage image = vehicleImageRepository.findByIdAndVehicleId(imageId, vehicleId)
-            .orElseThrow(() -> new NotFoundException("Imagem nao encontrada."));
+                .orElseThrow(() -> new NotFoundException("Imagem nao encontrada."));
         if ("UPLOAD".equalsIgnoreCase(image.getSourceKind())) {
             storageService.deleteIfManaged(image.getStorageKey());
         }
@@ -224,10 +238,10 @@ class MarketplaceService {
             if (hasText(filter.search())) {
                 String like = "%" + filter.search().trim().toLowerCase(Locale.ROOT) + "%";
                 predicates.add(builder.or(
-                    builder.like(builder.lower(root.get("brand")), like),
-                    builder.like(builder.lower(root.get("model")), like),
-                    builder.like(builder.lower(root.get("version")), like),
-                    builder.like(builder.lower(root.get("title")), like)
+                        builder.like(builder.lower(root.get("brand")), like),
+                        builder.like(builder.lower(root.get("model")), like),
+                        builder.like(builder.lower(root.get("version")), like),
+                        builder.like(builder.lower(root.get("title")), like)
                 ));
             }
             if (hasText(filter.brand())) {
@@ -260,10 +274,10 @@ class MarketplaceService {
 
     private String generateUniqueSlug(Vehicle vehicle, VehicleUpsertRequest request) {
         String baseSlug = slugify("%s-%s-%s-%s".formatted(
-            request.brand(),
-            request.model(),
-            optionalText(request.version()) == null ? "catalogo" : request.version(),
-            request.year()
+                request.brand(),
+                request.model(),
+                optionalText(request.version()) == null ? "catalogo" : request.version(),
+                request.year()
         ));
         String slug = baseSlug;
         int suffix = 2;
@@ -275,7 +289,7 @@ class MarketplaceService {
 
     private boolean slugInUse(String slug, UUID currentId) {
         return vehicleRepository.findAll((root, query, builder) -> builder.equal(root.get("slug"), slug)).stream()
-            .anyMatch(vehicle -> !vehicle.getId().equals(currentId));
+                .anyMatch(vehicle -> !vehicle.getId().equals(currentId));
     }
 
     private boolean hasText(String text) {
@@ -309,59 +323,9 @@ class MarketplaceService {
 
     private String slugify(String value) {
         return Normalizer.normalize(value == null ? "" : value, Normalizer.Form.NFD)
-            .replaceAll("\\p{M}", "")
-            .replaceAll("[^a-zA-Z0-9]+", "-")
-            .replaceAll("(^-|-$)", "")
-            .toLowerCase(Locale.ROOT);
-    }
-}
-
-record VehicleFilter(
-    String search,
-    String brand,
-    Integer minYear,
-    BigDecimal maxPrice,
-    VehicleStatus status,
-    boolean featuredOnly
-) {
-}
-
-record VehicleUpsertRequest(
-    String title,
-    String brand,
-    String model,
-    String version,
-    Integer year,
-    Integer modelYear,
-    BigDecimal price,
-    Integer mileage,
-    TransmissionType transmission,
-    FuelType fuelType,
-    String color,
-    Integer doors,
-    String description,
-    String highlights,
-    Boolean featured,
-    VehicleStatus status
-) {
-}
-
-record LeadRequest(
-    String customerName,
-    String phone,
-    String email,
-    String message
-) {
-}
-
-class NotFoundException extends RuntimeException {
-    NotFoundException(String message) {
-        super(message);
-    }
-}
-
-class BadRequestException extends RuntimeException {
-    BadRequestException(String message) {
-        super(message);
+                .replaceAll("\\p{M}", "")
+                .replaceAll("[^a-zA-Z0-9]+", "-")
+                .replaceAll("(^-|-$)", "")
+                .toLowerCase(Locale.ROOT);
     }
 }

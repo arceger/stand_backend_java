@@ -1,23 +1,24 @@
-package com.stand.backend;
+package com.stand.backend.service;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
-import java.io.IOException;
-import java.util.Map;
-import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.util.Map;
+import java.util.UUID;
+
 @Service
-class StorageService {
+public class StorageService {
 
     private final Cloudinary cloudinary;
 
-    StorageService(Cloudinary cloudinary) {
+    public StorageService(Cloudinary cloudinary) {
         this.cloudinary = cloudinary;
     }
 
-    StoredImage save(MultipartFile file, UUID vehicleId) {
+    public StoredImage save(MultipartFile file, UUID vehicleId) {
         try {
             // Envia o array de bytes
             Map<?, ?> uploadResult = cloudinary.uploader().upload(
@@ -38,7 +39,7 @@ class StorageService {
         }
     }
 
-    void deleteIfManaged(String storageKey) {
+    public void deleteIfManaged(String storageKey) {
         if (storageKey == null || storageKey.isBlank()) {
             return;
         }
@@ -50,7 +51,6 @@ class StorageService {
         }
     }
 
-    record StoredImage(String storageKey, String publicUrl) {
+    public record StoredImage(String storageKey, String publicUrl) {
     }
 }
-
